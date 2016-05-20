@@ -1,8 +1,8 @@
 package test.filter.api;
 
 import java.util.*;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
-import test.filter.api.Filter;
 
 /**
  * This is a small app that demonstrates how a {@link Filter} can be used.
@@ -15,24 +15,24 @@ public class FilterTest {
 
     private static class MyFilter implements Filter {
 
-        private int N;
-        private int time = 0;
-        private int count = 0;
-        private Queue<Long> queue = new LinkedList<Long>();
+        private int deltaN;
+        private LinkedBlockingQueue<Long> queue = new LinkedBlockingQueue<>();
 
         private MyFilter (int N) {
-            this.N = N;
+            deltaN = N - numberOfSignalsProducers;
         }
 
         @Override
-        synchronized public boolean isSignalAllowed() {
-            long time = System.currentTimeMillis();
-            while (queue.size() > 0 && time - queue.element() > 60000) {
-                queue.remove();
-            }
-            if(queue.size() < N) {
-                queue.add(time);
+        public boolean isSignalAllowed() {
+            Long time = System.currentTimeMillis();
+            if (queue.size() <= deltaN) {
+                queue.offer(time);
                 return true;
+            }
+            else {
+                if(time - queue.peek() >= 6e4) {
+                    queue.poll();
+                }
             }
             return false;
         }
@@ -63,7 +63,7 @@ public class FilterTest {
     }
 
     public static void main (String ... args) throws InterruptedException {
-            final int N = 100;
+        final int N = 100;
         Filter filter = new MyFilter(N);
 
         AtomicInteger totalPassed = new AtomicInteger();
